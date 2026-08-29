@@ -1,0 +1,102 @@
+# https://developers.home-assistant.io/docs/core/integration-quality-scale/
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: >-
+      The only registered action is the reset_stream entity service, which
+      has to be registered by the camera platform (entity services cannot
+      be registered in async_setup).
+  appropriate-polling: done
+  brands:
+    status: done
+    comment: >-
+      Brand assets ship in-repo (custom_components/nanit/brand/), which HA
+      core serves for custom integrations without a home-assistant/brands
+      submission.
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency: done
+  docs-actions: done
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup:
+    status: exempt
+    comment: This integration does not use any events.
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions:
+    status: done
+    comment: >-
+      reset_stream is best-effort cache invalidation with no failure mode to
+      surface. Entity command failures raise translated HomeAssistantError.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage:
+    status: todo
+    comment: The suite sits at ~87% with the CI gate at 80; the rule wants above 95.
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery-update-info:
+    status: exempt
+    comment: >-
+      Setup is cloud-account based, not host based. The Sound & Light local
+      address is re-resolved via mDNS at runtime by the transport itself,
+      so there is no discovery-sourced config entry data to refresh.
+  discovery:
+    status: exempt
+    comment: >-
+      Setup requires Nanit cloud credentials and cameras do not advertise on
+      the LAN. The Sound & Light does advertise via mDNS, but only its local
+      transport address is discoverable; an account cannot be set up from it,
+      so discovery cannot initiate a config flow.
+  docs-conditions:
+    status: exempt
+    comment: The integration provides no custom conditions.
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-triggers:
+    status: exempt
+    comment: The integration provides no custom triggers.
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: todo
+    comment: >-
+      Devices are discovered per baby at setup only; hardware added to the
+      account mid-run needs an integration reload to appear.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations: done
+  icon-translations: done
+  reconfiguration-flow:
+    status: exempt
+    comment: Camera IPs are configured via the options flow. Account credentials are updated via reauth.
+  repair-issues: done
+  stale-devices: done
+
+  # Platinum
+  async-dependency: done
+  inject-websession: done
+  strict-typing: done

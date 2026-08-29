@@ -1,0 +1,74 @@
+"""Select platform for Nanit — Sound & Light Machine sound."""
+
+from __future__ import annotations
+
+import logging
+
+from homeassistant.components.select import SelectEntity
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from . import NanitConfigEntry
+from .aionanit_sl.exceptions import NanitTransportError
+from .const import DEFAULT_SOUND_MACHINE_SOUNDS, DOMAIN
+from .coordinator import NanitSoundLightCoordinator
+from .entity import NanitSoundLightEntity
+
+PARALLEL_UPDATES = 0
+
+_LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: NanitConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Nanit select entities for all devices on the account."""
+    entities: list[SelectEntity] = []
+    for speaker_data in entry.runtime_data.speakers.values():
+        entities.append(NanitSoundSelect(speaker_data.coordinator))
+    async_add_entities(entities)
+
+
+class NanitSoundSelect(NanitSoundLightEntity, SelectEntity):
+    """Select entity to choose which sound the Sound & Light Machine plays."""
+
+    _attr_translation_key = "sound_machine_sound"
+    _attr_icon = "mdi:playlist-music"
+
+    def __init__(
+        self,
+        coordinator: NanitSoundLightCoordinator,
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.sound_light.speaker_uid}_sound_machine_sound"
+
+    @property
+    def options(self) -> list[str]:
+        """Return available sound options from device state."""
+        if self.coordinator.data is not None and self.coordinator.data.available_tracks:
+            return list(self.coordinator.data.available_tracks)
+        return [s.replace("_", " ").title() for s in DEFAULT_SOUND_MACHINE_SOUNDS]
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the currently selected sound track."""
+        if self.coordinator.data is None:
+            return None
+        result: str | None = self.coordinator.data.current_track
+        return result
+
+    async def async_select_option(self, option: str) -> None:
+        """Change the selected sound track via local WebSocket."""
+        try:
+            await self.coordinator.sound_light.async_set_track(option)
+        except NanitTransportError as err:
+            _LOGGER.error("Failed to set sound to %s: %s", option, err)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="sl_track_failed",
+                translation_placeholders={"option": option},
+            ) from err
