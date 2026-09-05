@@ -332,7 +332,7 @@ class NanitHub:
                 f"No devices could be set up: {', '.join(failed_cameras + failed_speakers)}"
             )
 
-        # via_device must point at a camera device that actually registered
+        # via_device_id must resolve to a camera device that actually registered
         # this run. The speaker tasks ran concurrently with the camera
         # tasks, so the link is settled only now.
         for speaker_data in self._speaker_data.values():
