@@ -17,7 +17,7 @@
   "documentation": "https://github.com/jrackerby/nanit",
   "integration_type": "hub",
   "iot_class": "cloud_push",
-  "issue_tracker": "https://github.com/jrackerby/HA/issues",
+  "issue_tracker": "https://github.com/jrackerby/nanit/issues",
   "loggers": [
     "custom_components.nanit",
     "aionanit"

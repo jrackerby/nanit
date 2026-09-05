@@ -81,7 +81,7 @@ def _finite_float(value: float) -> float | None:
 
 
 # WebSocket liveness. The device relies on WebSocket protocol-level ping/pong
-# for keepalive. It sends no app-level keepalive frame (see CLAUDE.md). We set
+# for keepalive. It sends no app-level keepalive frame of its own. We set
 # the ping interval explicitly rather than leaning on library defaults.
 WS_PING_INTERVAL = 20  # seconds
 WS_PING_TIMEOUT = 20  # seconds, drop a half-open socket instead of wedging
@@ -225,9 +225,8 @@ class CommandTimeoutError(ConnectionError):
     or an explicit device rejection. The distinction matters because the
     responses are OPPOSITE: a timeout on a live socket is accepted
     optimistically and must NOT re-send (duplicates wedge a busy device, and
-    the retry that once lived here was removed for exactly that, see
-    CLAUDE.md), while a drop or rejection propagates so the coordinator rolls
-    back.
+    a retry that once lived here was removed for exactly that), while a drop
+    or rejection propagates so the coordinator rolls back.
     """
 
 
