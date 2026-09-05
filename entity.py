@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -15,6 +16,34 @@ from .coordinator import (
     NanitSoundLightCoordinator,
 )
 from .sanitize import display_name
+
+
+def via_camera_device_id(coordinator, camera_uid: str | None) -> str | None:
+    """The registry id of the baby's camera device, or None if there isn't one.
+
+    WHY A LOOKUP AND NOT A TUPLE. `via_device_id` takes a device REGISTRY id;
+    the identifier tuple that used to go to the deprecated `via_device` is not
+    one, and the two fail differently. `via_device` resolved the tuple itself
+    and, finding nothing, logged and left the device unparented.
+    `via_device_id` raises DeviceInfoError on an id the registry does not
+    hold, so "the camera is not registered yet" has to be answered here rather
+    than handed to the registry to discover.
+
+    Both misses are real and neither is an error:
+      * a standalone Sound & Light Machine has no camera on the account at
+        all, which is why hub.py nulls `via_camera_uid` for a speaker whose
+        camera did not register this run; and
+      * on a first-ever setup the camera platform may not have created the
+        device before the diary entities are added.
+    Returning None drops the parent link for this add and nothing else --
+    the same outcome `via_device` produced, minus the deprecation.
+    """
+    if not camera_uid:
+        return None
+    device = dr.async_get(coordinator.hass).async_get_device_by_identifier(
+        (DOMAIN, camera_uid), coordinator.config_entry.entry_id
+    )
+    return device.id if device is not None else None
 
 
 class NanitEntity(CoordinatorEntity[NanitPushCoordinator]):
@@ -69,7 +98,7 @@ class NanitSoundLightEntity(CoordinatorEntity[NanitSoundLightCoordinator]):
     def device_info(self) -> DeviceInfo:
         """Return device info — its own device, keyed by the speaker's uid.
 
-        Linked to the baby's camera via via_device only when a camera
+        Linked to the baby's camera via via_device_id only when a camera
         exists on the account (standalone speakers have none).
         """
         baby = self.coordinator.baby
@@ -79,8 +108,10 @@ class NanitSoundLightEntity(CoordinatorEntity[NanitSoundLightCoordinator]):
             manufacturer="Nanit",
             model="Sound & Light Machine",
         )
-        if self.coordinator.via_camera_uid:
-            info["via_device"] = (DOMAIN, self.coordinator.via_camera_uid)
+        if via_id := via_camera_device_id(
+            self.coordinator, self.coordinator.via_camera_uid
+        ):
+            info["via_device_id"] = via_id
         return info
 
     @property
@@ -121,7 +152,7 @@ class NanitDiaryEntity(CoordinatorEntity[NanitDiaryCoordinator]):
 
     Its own device (not the camera's) since a diary entry can exist without a
     working camera, and multiple caregivers log to it independently of any
-    single device. via_device links it under the baby's camera when one exists.
+    single device. via_device_id links it under the baby's camera when one exists.
     """
 
     _attr_has_entity_name = True
@@ -135,8 +166,8 @@ class NanitDiaryEntity(CoordinatorEntity[NanitDiaryCoordinator]):
             name=f"{display_name(baby.name, baby.uid)} Care Log",
             manufacturer="Nanit",
         )
-        if baby.camera_uid:
-            info["via_device"] = (DOMAIN, baby.camera_uid)
+        if via_id := via_camera_device_id(self.coordinator, baby.camera_uid):
+            info["via_device_id"] = via_id
         return info
 
 
@@ -154,6 +185,6 @@ class NanitRollingAverageEntity(CoordinatorEntity[NanitRollingAverageCoordinator
             name=f"{display_name(baby.name, baby.uid)} Care Log",
             manufacturer="Nanit",
         )
-        if baby.camera_uid:
-            info["via_device"] = (DOMAIN, baby.camera_uid)
+        if via_id := via_camera_device_id(self.coordinator, baby.camera_uid):
+            info["via_device_id"] = via_id
         return info

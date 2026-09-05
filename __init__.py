@@ -331,11 +331,17 @@ def _async_remove_stale_devices(
                 "Removing stale device %s (no longer on account)",
                 device.name,
             )
-            # Detach from this entry only; HA deletes the device when the
-            # last config entry releases it, so a device shared with a
-            # second Nanit account (hardware moved between accounts) is
-            # never yanked out from under the other entry.
-            device_reg.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+            # THE SHARED-DEVICE CASE THIS USED TO GUARD NO LONGER EXISTS.
+            # This detached the device from this entry with
+            # `remove_config_entry_id` so a device ALSO claimed by a second
+            # Nanit account survived; HA deleted it only when the last entry
+            # let go. A device now belongs to exactly one config entry --
+            # DeviceEntry.config_entries is a derived property over a single
+            # config_entry_id -- so there is no second holder to preserve it
+            # for, the detach has nothing left to mean, and the parameter is
+            # removed in 2027.8. Removing outright is what detaching already
+            # did in every case that can still occur.
+            device_reg.async_remove_device(device.id)
 
 
 async def async_remove_config_entry_device(
