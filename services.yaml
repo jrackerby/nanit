@@ -1,0 +1,131 @@
+reset_stream:
+  name: Reset stream
+  description: Discard the cached camera stream so a fresh stream is created.
+  target:
+    entity:
+      domain: camera
+      integration: nanit
+
+log_diaper_change:
+  name: Log diaper change
+  description: >-
+    Write a diaper-change entry to Nanit's care log. Confirmed live via
+    mitmproxy capture 2026-08-25 — see diary_api.py.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nanit
+    change_type:
+      required: true
+      selector:
+        select:
+          options:
+            - pee
+            - poo
+            - mixed
+            - dry
+    time:
+      selector:
+        datetime:
+    comment:
+      selector:
+        text:
+
+log_bottle_feed:
+  name: Log bottle feed
+  description: >-
+    Write a bottle-feed entry to Nanit's care log. Confirmed live via
+    mitmproxy capture 2026-08-25 — see diary_api.py.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nanit
+    amount_oz:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 16
+          step: 0.25
+          unit_of_measurement: oz
+    time:
+      selector:
+        datetime:
+    comment:
+      selector:
+        text:
+
+log_nursing:
+  name: Log nursing
+  description: >-
+    Write a nursing entry to Nanit's care log. Field shape (left_duration/
+    right_duration in seconds) is from an earlier uncaptured-this-round
+    trace, not independently confirmed live this session — see diary_api.py.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nanit
+    left_minutes:
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          unit_of_measurement: min
+    right_minutes:
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          unit_of_measurement: min
+    time:
+      selector:
+        datetime:
+    comment:
+      selector:
+        text:
+
+delete_diary_log:
+  name: Delete diary log
+  description: >-
+    Delete a care-log entry by its uid (as returned by log_diaper_change /
+    log_bottle_feed / log_nursing). Confirmed live via mitmproxy capture
+    2026-08-25 — see diary_api.py.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nanit
+    log_uid:
+      required: true
+      selector:
+        text:
+
+import_history:
+  name: Import history
+  description: >-
+    Backfill daily diaper/bottle/sleep totals from Nanit's calendar and
+    feed history into Home Assistant's long-term statistics, so
+    History/Statistics graphs show real trend data. Defaults to the last
+    400 days if no start_date is given. Re-running overwrites the same
+    days rather than duplicating them.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nanit
+    start_date:
+      selector:
+        date:
+    end_date:
+      selector:
+        date:

@@ -1,0 +1,240 @@
+{
+  "config": {
+    "step": {
+      "credentials": {
+        "title": "Connect to Nanit",
+        "description": "Enter your Nanit account credentials. All cameras on this account will be added automatically.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "mfa": {
+        "title": "Multi-Factor Authentication",
+        "description": "Enter the verification code sent to your device.",
+        "data": {
+          "mfa_code": "Verification Code"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Nanit",
+        "description": "Your Nanit session has expired. Please log in again.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_mfa": {
+        "title": "Re-authentication MFA",
+        "description": "Enter the verification code sent to your device.",
+        "data": {
+          "mfa_code": "Verification Code"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Nanit cloud API",
+      "invalid_auth": "Invalid email or password",
+      "invalid_mfa_code": "Invalid verification code",
+      "invalid_ip": "Invalid IP address",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This Nanit account is already configured",
+      "reauth_successful": "Re-authentication successful",
+      "reauth_email_mismatch": "The email address does not match the original account. Please use the same email.",
+      "no_cameras": "No devices found on this Nanit account"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nanit Options",
+        "description": "Select a device to configure its local IP addresses.",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "camera_ip": {
+        "title": "Device IPs for {camera_name}",
+        "description": "Enter local IP addresses for **{camera_name}** for local-first connectivity. Leave blank to use cloud only.",
+        "data": {
+          "camera_ip": "Camera IP Address",
+          "speaker_ip": "Sound & Light Machine IP Address"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "auth_failed": {
+      "message": "Authentication failed: {error}"
+    },
+    "connection_failed": {
+      "message": "Could not connect to Nanit: {error}"
+    },
+    "cloud_fetch_failed": {
+      "message": "Failed to fetch cloud events: {error}"
+    },
+    "diary_fetch_failed": {
+      "message": "Failed to fetch Nanit care log/sleep feed: {error}"
+    },
+    "sl_light_control_failed": {
+      "message": "Failed to control the Sound & Light light"
+    },
+    "sl_light_off_failed": {
+      "message": "Failed to turn off the Sound & Light light"
+    },
+    "sl_volume_failed": {
+      "message": "Failed to set the sound machine volume"
+    },
+    "sl_power_on_failed": {
+      "message": "Failed to turn on the Sound & Light Machine"
+    },
+    "sl_power_off_failed": {
+      "message": "Failed to turn off the Sound & Light Machine"
+    },
+    "sl_sound_on_failed": {
+      "message": "Failed to turn on the sound"
+    },
+    "sl_sound_off_failed": {
+      "message": "Failed to turn off the sound"
+    },
+    "sl_track_failed": {
+      "message": "Failed to set the sound to {option}"
+    }
+  },
+  "issues": {
+    "camera_connection_failed": {
+      "title": "Nanit camera failed to connect",
+      "description": "Camera **{camera_name}** could not be reached. It will be retried on next reload.\n\nError: {error}"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "temperature": {
+        "name": "Temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "light": {
+        "name": "Light Level"
+      },
+      "sl_temperature": {
+        "name": "Temperature"
+      },
+      "sl_humidity": {
+        "name": "Humidity"
+      },
+      "sl_connection_mode": {
+        "name": "Connection Mode",
+        "state": {
+          "local": "Local",
+          "cloud": "Cloud",
+          "unavailable": "Unavailable"
+        }
+      },
+      "wifi_ssid": {
+        "name": "WiFi SSID"
+      },
+      "wifi_signal": {
+        "name": "WiFi Signal Strength"
+      },
+      "wifi_frequency": {
+        "name": "WiFi Frequency"
+      },
+      "sl_wifi_signal": {
+        "name": "WiFi Signal Strength"
+      },
+      "sl_firmware": {
+        "name": "Firmware"
+      },
+      "last_diaper_change": {
+        "name": "Last Diaper Change"
+      },
+      "diaper_changes_today": {
+        "name": "Diaper Changes Today"
+      },
+      "last_bottle_feed": {
+        "name": "Last Bottle Feed"
+      },
+      "bottle_oz_today": {
+        "name": "Bottle Today"
+      },
+      "last_nursing": {
+        "name": "Last Nursing"
+      },
+      "last_sleep_transition": {
+        "name": "Last Sleep Transition"
+      },
+      "sleep_summary": {
+        "name": "Sleep Summary"
+      },
+      "avg_bottle_oz_30d": {
+        "name": "Avg Bottle Oz 30d"
+      },
+      "avg_pees_30d": {
+        "name": "Avg Pees 30d"
+      },
+      "avg_poos_30d": {
+        "name": "Avg Poos 30d"
+      }
+    },
+    "binary_sensor": {
+      "motion": {
+        "name": "Motion"
+      },
+      "sound": {
+        "name": "Sound"
+      },
+      "connectivity": {
+        "name": "Connectivity"
+      },
+      "sl_connectivity": {
+        "name": "Connectivity"
+      },
+      "asleep": {
+        "name": "Asleep"
+      }
+    },
+    "switch": {
+      "camera_power": {
+        "name": "Camera Power"
+      },
+      "sound_machine_switch": {
+        "name": "Power"
+      },
+      "sl_sound_switch": {
+        "name": "Sound"
+      }
+    },
+    "number": {
+      "sound_machine_volume": {
+        "name": "Volume"
+      }
+    },
+    "light": {
+      "night_light": {
+        "name": "Night Light"
+      },
+      "sound_light_light": {
+        "name": "Light"
+      }
+    },
+    "select": {
+      "sound_machine_sound": {
+        "name": "Sound Track"
+      }
+    },
+    "media_player": {
+      "sound_machine": {
+        "name": "Sound Machine"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Camera"
+      }
+    }
+  }
+}

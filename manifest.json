@@ -1,0 +1,29 @@
+{
+  "domain": "nanit",
+  "name": "Nanit",
+  "after_dependencies": [
+    "recorder",
+    "zeroconf"
+  ],
+  "codeowners": [
+    "@wealthystudent",
+    "@jrackerby"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "lovelace"
+  ],
+  "documentation": "https://github.com/jrackerby/nanit",
+  "integration_type": "hub",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/jrackerby/nanit/issues",
+  "loggers": [
+    "custom_components.nanit",
+    "aionanit"
+  ],
+  "requirements": [
+    "aionanit>=1.12.1"
+  ],
+  "version": "1.14.0"
+}
