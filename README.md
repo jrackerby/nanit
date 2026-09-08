@@ -5,7 +5,7 @@ sensors, and the diary API.
 
 ## Lineage
 
-This is the **estate fork**. It was previously versioned `1.13.0-estate`, which
+This is a **fork**. It was previously versioned `1.13.0-estate`, which
 is a valid semver *pre-release* and therefore sorts **before** `1.13.0` — so
 every ordering comparison read the fork as older than the release it forked
 from. It is now `1.14.0` and the fork is recorded here, in prose, instead of in a
