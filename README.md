@@ -11,8 +11,10 @@ where it works, and both addresses can be entered by hand where it does not.
 
 ## Lineage
 
-This is a **fork** of the `nanit` custom integration by `@wealthystudent`, who
-remains a codeowner in `manifest.json`. What this fork adds over it:
+This is a **fork** of
+[`wealthystudent/ha-nanit`](https://github.com/wealthystudent/ha-nanit), whose
+author remains a codeowner in `manifest.json`. Bug reports about behaviour this
+fork did not change are better filed upstream. What this fork adds over it:
 
 - **`aionanit_sl`** — a vendored client for the **Sound + Light** device
   (protobuf over the vendor's transport), which the upstream `aionanit`
