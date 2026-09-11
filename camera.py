@@ -77,6 +77,7 @@ class NanitCameraEntity(NanitEntity, Camera):
         self._attr_unique_id = f"{camera.uid}_camera"
         self._cached_snapshot: bytes | None = None
         self._cached_snapshot_at: float = 0.0
+        self._snapshot_source: str | None = None
         self._cached_stream_source: str | None = None
         self._stream_source_started_at: float = 0.0
         self._cancel_stream_expiry_timer: CALLBACK_TYPE | None = None
@@ -531,16 +532,87 @@ class NanitCameraEntity(NanitEntity, Camera):
         await self._async_fetch_snapshot()
 
     async def _async_fetch_snapshot(self) -> bytes | None:
-        """Fetch a snapshot from the cloud and update the cache."""
-        try:
-            image = await self._camera.async_get_snapshot()
-        except Exception:  # noqa: BLE001
-            _LOGGER.debug("Failed to fetch snapshot for %s", self._camera.uid)
-            return None
+        """Fetch a snapshot, falling back to the live stream.
+
+        Nanit's cloud snapshot endpoint 404s for some babies. It used to be
+        the only source here, so when it went every still went with it --
+        card thumbnail, ``camera_proxy`` and ``camera.snapshot`` alike --
+        and the reason was logged at DEBUG where nobody was looking.
+        """
+        image = await self._async_snapshot_from_cloud()
+        if image is not None:
+            self._note_snapshot_source("cloud")
+        else:
+            image = await self._async_snapshot_from_stream()
+            self._note_snapshot_source("stream" if image is not None else "none")
+
         if image is not None:
             self._cached_snapshot = image
             self._cached_snapshot_at = time.monotonic()
         return image
+
+    async def _async_snapshot_from_cloud(self) -> bytes | None:
+        """Fetch a still from Nanit's cloud snapshot endpoint."""
+        try:
+            return await self._camera.async_get_snapshot()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug(
+                "Cloud snapshot failed for %s", self._camera.uid, exc_info=True
+            )
+            return None
+
+    async def _async_snapshot_from_stream(self) -> bytes | None:
+        """Derive a still from the live RTMPS stream.
+
+        Only reached when the cloud path has already failed: this costs a
+        ``PUT_STREAMING`` and a keyframe wait, where the cloud endpoint is
+        one cheap GET.
+        """
+        try:
+            stream = await self.async_create_stream()
+            if stream is None:
+                return None
+            return await stream.async_get_image()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug(
+                "Stream snapshot failed for %s", self._camera.uid, exc_info=True
+            )
+            return None
+
+    def _note_snapshot_source(self, source: str) -> None:
+        """Log which source is answering, once per crossing.
+
+        Deduped on the source TOKEN, never on the message: a line carrying
+        a reason or a count makes every render a new entry and turns one
+        condition into a log flood. INFO rather than WARNING because
+        nobody can edit anything to fix a cloud endpoint that has started
+        404ing -- the integration is reporting on its own subject -- but
+        not DEBUG, because "every still now costs a stream start" is not
+        something an operator should have to turn on debug logging to find.
+        """
+        if source == self._snapshot_source:
+            return
+        previous = self._snapshot_source
+        self._snapshot_source = source
+        if previous is None and source == "cloud":
+            # The ordinary path answering on the first fetch is not an event.
+            return
+        if source == "cloud":
+            _LOGGER.info(
+                "Nanit cloud snapshots are working again for %s", self._camera.uid
+            )
+        elif source == "stream":
+            _LOGGER.info(
+                "Nanit cloud snapshot unavailable for %s; deriving stills from "
+                "the live stream instead",
+                self._camera.uid,
+            )
+        else:
+            _LOGGER.info(
+                "No still available for %s: cloud snapshot and live stream both "
+                "failed",
+                self._camera.uid,
+            )
 
     # ------------------------------------------------------------------
     # On/off
