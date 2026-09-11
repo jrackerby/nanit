@@ -22,12 +22,12 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import issue_registry as ir
 
-from aionanit.exceptions import (
+from .aionanit_jr.exceptions import (
     NanitAuthError,
     NanitCameraUnavailable,
     NanitConnectionError,
 )
-from aionanit.models import Baby
+from .aionanit_jr.models import Baby
 
 from .aionanit_sl.sound_light import NanitSoundLight
 from .const import CONF_CAMERA_IPS, CONF_REFRESH_TOKEN, CONF_SPEAKER_IPS, DOMAIN
@@ -43,7 +43,7 @@ from .sanitize import display_name
 from .sl_discovery import make_local_host_resolver
 
 if TYPE_CHECKING:
-    from aionanit import NanitCamera, NanitClient
+    from .aionanit_jr import NanitCamera, NanitClient
 
     from . import NanitConfigEntry
 
@@ -121,7 +121,7 @@ class NanitHub:
         entry: NanitConfigEntry,
     ) -> None:
         """Initialize the hub with an existing session and config entry."""
-        from aionanit.client import NanitClient
+        from .aionanit_jr.client import NanitClient
 
         self._hass = hass
         self._entry = entry
@@ -412,7 +412,7 @@ class NanitHub:
         row is skipped rather than failing the whole scan. Transport-level
         failures surface as NanitConnectionError so setup retries.
         """
-        from aionanit.rest import (
+        from .aionanit_jr.rest import (
             NANIT_API_HEADERS,
             _parse_camera_connected,
             _parse_camera_last_seen,

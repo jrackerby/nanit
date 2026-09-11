@@ -26,6 +26,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The integration had no test suite of its own, which is how 1.14.1 shipped
+  # on lint alone. The vendored aionanit_jr library carries one (300 tests);
+  # it runs from the repo root, where the package is importable top-level.
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # Installs from the file beside the suite, never a list here: a copy in
+      # the workflow goes stale on the next import added, and its failure
+      # reads as a broken test rather than a missing declaration.
+      - run: python -m pip install -r tests/requirements.txt
+      # A suite that collects nothing is a gate that never ran, so require a
+      # floor rather than accept "0 passed" as green.
+      - run: |
+          set -euo pipefail
+          python -m pytest -q -p no:cacheprovider | tee pytest.out
+          n="$(grep -oE '[0-9]+ passed' pytest.out | grep -oE '[0-9]+' || echo 0)"
+          test "$n" -ge 300 || { echo "CANNOT PASS: only $n tests passed; the suite is 300"; exit 1; }
+
   hassfest:
     runs-on: ubuntu-latest
     timeout-minutes: 15

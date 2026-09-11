@@ -37,9 +37,9 @@ from typing import Any
 
 import aiohttp
 
-from aionanit.auth import TokenManager
-from aionanit.exceptions import NanitAuthError
-from aionanit.rest import NanitRestClient
+from ..aionanit_jr.auth import TokenManager
+from ..aionanit_jr.exceptions import NanitAuthError
+from ..aionanit_jr.rest import NanitRestClient
 
 from .exceptions import NanitTransportError
 from .models import (

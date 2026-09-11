@@ -19,11 +19,11 @@
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/jrackerby/nanit/issues",
   "loggers": [
-    "custom_components.nanit",
-    "aionanit"
+    "custom_components.nanit"
   ],
   "requirements": [
-    "aionanit>=1.12.1"
+    "protobuf>=6,<8",
+    "websockets>=13"
   ],
-  "version": "1.14.1"
+  "version": "1.15.0"
 }

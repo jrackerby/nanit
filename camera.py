@@ -12,8 +12,8 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback, async_get_current_platform
 from homeassistant.helpers.event import async_call_later
 
-from aionanit import NanitCamera
-from aionanit.models import ConnectionState
+from .aionanit_jr import NanitCamera
+from .aionanit_jr.models import ConnectionState
 
 from . import NanitConfigEntry
 from .coordinator import NanitPushCoordinator
