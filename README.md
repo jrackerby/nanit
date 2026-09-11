@@ -1,24 +1,49 @@
 # Nanit
 
-Home Assistant integration for Nanit baby monitors — cameras, sound and light,
-sensors, and the diary API.
+Home Assistant integration for Nanit baby monitors — the camera stream, the
+Sound + Light unit, the sensors behind them, and the diary.
+
+Nanit publishes no local API and no documented cloud one: everything here goes
+through the same cloud endpoints the phone app uses, which is why sign-in needs
+the emailed MFA code and why a session can end and ask for it again. Camera and
+speaker traffic is local once the devices are found; discovery uses zeroconf
+where it works, and both addresses can be entered by hand where it does not.
 
 ## Lineage
 
-This is a **fork**. It was previously versioned `1.13.0-estate`, which
-is a valid semver *pre-release* and therefore sorts **before** `1.13.0` — so
-every ordering comparison read the fork as older than the release it forked
-from. It is now `1.14.0` and the fork is recorded here, in prose, instead of in a
-version string that has to sort.
+This is a **fork** of
+[`wealthystudent/ha-nanit`](https://github.com/wealthystudent/ha-nanit), whose
+author remains a codeowner in `manifest.json`. Bug reports about behaviour this
+fork did not change are better filed upstream. What this fork adds over it:
 
-Depends on `aionanit`; `aionanit_sl` in this repo carries the Sound+Light
-device support that upstream does not.
+- **`aionanit_sl`** — a vendored client for the **Sound + Light** device
+  (protobuf over the vendor's transport), which the upstream `aionanit`
+  dependency does not cover. This is what makes the `light`, `media_player`
+  and sound-machine controls exist at all.
+- Diary logging as actions (`log_diaper_change`, `log_bottle_feed`,
+  `log_nursing`, `delete_diary_log`, `import_history`).
+- Diagnostics with credential redaction, and a re-auth flow that refuses a
+  different email than the entry was created with.
 
 ## What it creates
 
-Platforms include `camera`, `media_player`, `light`, `switch`, `select`,
-`number`, `sensor`, `binary_sensor`. Registers frontend resources and a
-`brand/` asset set, and exposes services plus diagnostics.
+Platforms: `camera`, `media_player`, `light`, `switch`, `select`, `number`,
+`sensor`, `binary_sensor`. It also registers a frontend resource set and brand
+assets, and exposes the diary actions above plus downloadable diagnostics.
+
+## Actions
+
+| action | what it does |
+|---|---|
+| `nanit.reset_stream` | restart the camera stream |
+| `nanit.log_diaper_change` | write a diaper entry to the Nanit diary |
+| `nanit.log_bottle_feed` | write a bottle feed |
+| `nanit.log_nursing` | write a nursing session |
+| `nanit.delete_diary_log` | remove an entry |
+| `nanit.import_history` | backfill diary history |
+
+Every field is described in `services.yaml`, which is what Home Assistant
+renders in Developer Tools and the automation editor.
 
 ## Configuration
 

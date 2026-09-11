@@ -6,7 +6,7 @@ reuses the authenticated rest_client/token_manager the aionanit client
 already manages, adds nothing to the dependency surface.
 
 Every shape below is CONFIRMED LIVE via two mitmproxy captures against the
-account's own Nanit app, 2026-08-25 (jrackerby/HA#35), superseding an
+account's own Nanit app, 2026-08-25, superseding an
 earlier decompile-based synthesis from 2026-07-26.
 
   * GET /calendar?start=&end= is the real history read path -- confirmed
