@@ -22,8 +22,8 @@ from homeassistant.util.color import (
     value_to_brightness,
 )
 
-from aionanit import NanitCamera
-from aionanit.models import CameraState, NightLightState
+from .aionanit_jr import NanitCamera
+from .aionanit_jr.models import CameraState, NightLightState
 
 from . import NanitConfigEntry
 from .aionanit_sl.exceptions import NanitTransportError
