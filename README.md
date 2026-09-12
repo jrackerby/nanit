@@ -16,12 +16,14 @@ This is a **fork** of
 author remains a codeowner in `manifest.json`. Bug reports about behaviour this
 fork did not change are better filed upstream. What this fork adds over it:
 
-- **`aionanit_jr`** — the camera client, vendored from
-  [`aionanit`](https://pypi.org/project/aionanit/) 1.12.1 (MIT) and renamed
+- **`aionanit_jr`** — the camera client, a fork of
+  [`aionanit`](https://pypi.org/project/aionanit/) 1.12.1 (MIT) kept at
+  [`jrackerby/aionanit`](https://github.com/jrackerby/aionanit) and renamed
   so it can never collide with the upstream package. Upstream publishes no
-  repository or issue tracker, so its fixes live here: the reconnect loop now
-  stops on a closed session instead of retrying forever. Its 300-test suite
-  runs in this repo's CI under `tests/`.
+  repository or issue tracker, so its fixes live there: the reconnect loop now
+  stops on a closed session instead of retrying forever. `manifest.json` pins
+  the wheel its release attaches, so it is pip-installed, not vendored; its
+  300-test suite runs in that repo's CI.
 - **`aionanit_sl`** — a vendored client for the **Sound + Light** device
   (protobuf over the vendor's transport), which `aionanit` does not cover.
   This is what makes the `light`, `media_player` and sound-machine controls

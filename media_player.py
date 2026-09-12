@@ -16,7 +16,7 @@ from homeassistant.components.media_player.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .aionanit_jr import NanitCamera
+from aionanit_jr import NanitCamera
 
 from . import NanitConfigEntry
 from .coordinator import NanitPushCoordinator
