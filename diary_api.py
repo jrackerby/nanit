@@ -52,10 +52,10 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import aiohttp
 
-from .aionanit_jr.exceptions import NanitAuthError, NanitConnectionError
+from aionanit_jr.exceptions import NanitAuthError, NanitConnectionError
 
 if TYPE_CHECKING:
-    from .aionanit_jr.client import NanitClient
+    from aionanit_jr.client import NanitClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -274,7 +274,7 @@ class NanitDiaryClient:
         json_body: dict[str, Any] | None = None,
     ) -> Any:
         """Make an authenticated request, raising aionanit's own exception types."""
-        from .aionanit_jr.rest import NANIT_API_HEADERS
+        from aionanit_jr.rest import NANIT_API_HEADERS
 
         tm = self._client.token_manager
         if tm is None:

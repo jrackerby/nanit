@@ -26,38 +26,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The integration had no test suite of its own, which is how 1.14.1 shipped
-  # on lint alone. The vendored aionanit_jr library carries one (300 tests);
-  # it runs from the repo root, where the package is importable top-level.
+  # The camera client is pip-installed from the wheel manifest.json pins
+  # (jrackerby/aionanit), so its 300-test suite runs in THAT repo's CI. What
+  # this repo can prove is that the pinned wheel satisfies the code importing
+  # it: install exactly what the manifest names, then resolve every symbol
+  # the integration imports from aionanit_jr against it. Runs in a venv
+  # because the hosted runner's Python is externally managed.
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
-      # Installs from the file beside the suite, never a list here: a copy in
-      # the workflow goes stale on the next import added, and its failure
-      # reads as a broken test rather than a missing declaration.
-      - run: python -m pip install -r tests/requirements.txt
-      # STAGE, do not run from the root. The root is the integration package
-      # itself, and its select.py shadows the stdlib `select` on this runner's
-      # Python (not a builtin there) -- the first run of this job died inside
-      # pytest's own `import subprocess`. A directory holding only the library,
-      # the suite and its ini has nothing to shadow and no __init__.py to walk
-      # into. A suite that collects nothing is a gate that never ran, so
-      # require a floor rather than accept "0 passed" as green.
       - run: |
           set -euo pipefail
-          stage="$(mktemp -d)"
-          cp -a aionanit_jr tests pytest.ini "$stage/"
-          cd "$stage"
-          test ! -e select.py
-          python -c "import select, subprocess" || { echo "CANNOT RUN: stdlib still shadowed"; exit 1; }
-          python -m pytest -q -p no:cacheprovider | tee pytest.out
-          n="$(grep -oE '[0-9]+ passed' pytest.out | grep -oE '[0-9]+' || echo 0)"
-          test "$n" -ge 300 || { echo "CANNOT PASS: only $n tests passed; the suite is 300"; exit 1; }
+          uv venv .venv
+          python3 -c 'import json;print("\n".join(json.load(open("manifest.json"))["requirements"]))' > requirements.txt
+          cat requirements.txt
+          uv pip install -p .venv/bin/python -r requirements.txt
+          .venv/bin/python .github/scripts/check_requirements.py
 
   hassfest:
     runs-on: ubuntu-latest

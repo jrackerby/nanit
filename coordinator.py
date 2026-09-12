@@ -35,8 +35,8 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .aionanit_jr.exceptions import NanitAuthError, NanitConnectionError
-from .aionanit_jr.models import Baby, CameraEvent, CameraState, CloudEvent, NetworkInfo
+from aionanit_jr.exceptions import NanitAuthError, NanitConnectionError
+from aionanit_jr.models import Baby, CameraEvent, CameraState, CloudEvent, NetworkInfo
 
 from .aionanit_sl.models import SoundLightEvent, SoundLightEventKind, SoundLightFullState
 from .aionanit_sl.sound_light import NanitSoundLight
@@ -61,7 +61,7 @@ from .diary_api import (
 from .sanitize import display_name
 
 if TYPE_CHECKING:
-    from .aionanit_jr import NanitCamera
+    from aionanit_jr import NanitCamera
 
     from . import NanitConfigEntry
     from .hub import NanitHub

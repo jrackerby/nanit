@@ -25,7 +25,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .aionanit_jr.models import CameraState, NetworkInfo
+from aionanit_jr.models import CameraState, NetworkInfo
 
 from . import NanitConfigEntry
 from .aionanit_sl.models import SoundLightFullState

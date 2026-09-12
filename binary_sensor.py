@@ -15,7 +15,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .aionanit_jr.models import CameraState, CloudEvent, ConnectionState
+from aionanit_jr.models import CameraState, CloudEvent, ConnectionState
 
 from . import NanitConfigEntry
 from .const import CLOUD_EVENT_WINDOW
