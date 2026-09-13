@@ -26,5 +26,5 @@
     "aionanit-jr@https://github.com/jrackerby/aionanit/releases/download/v1.14.0/aionanit_jr-1.14.0-py3-none-any.whl",
     "websockets>=13"
   ],
-  "version": "1.17.0"
+  "version": "1.17.1"
 }
