@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from homeassistant.components.camera import Camera, CameraEntityFeature
+from homeassistant.components.stream import Stream
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback, async_get_current_platform
 from homeassistant.helpers.event import async_call_later
@@ -30,6 +31,25 @@ _STREAM_SOURCE_MAX_AGE = 45 * 60
 # PUT_STREAMING; keepalives must land well inside that window.
 _STREAM_KEEPALIVE_INTERVAL = 5 * 60
 _STREAM_STOP_TIMEOUT = 5.0
+# Dropout recovery. HA's stream worker retries a failed source on its own
+# (10s, 20s, 30s ... between attempts) but never re-sends PUT_STREAMING, so
+# once the camera's push has lapsed every retry opens an ingest nobody is
+# publishing to. The worker reports each failure through the stream's
+# update callback; recovery answers it by resuming the push and restarting
+# the worker at once. A worker that ran this long before dropping is a
+# fresh dropout and answered immediately; one that fell straight over is
+# the same outage still going, and waits a doubling, capped delay.
+_STREAM_RECOVERY_HEALTHY_RUN = 120.0
+_STREAM_RECOVERY_DELAY_INITIAL = 1.0
+_STREAM_RECOVERY_DELAY_MAX = 60.0
+# After this many consecutive failed cycles the PUT_STREAMING may force a
+# control-session reconnect: the best-effort send is not being acknowledged,
+# so the control socket is the likelier fault.
+_STREAM_RECOVERY_ESCALATE_AFTER = 3
+# A cached source this close to its 45-minute rotation is rebuilt on
+# recovery rather than resumed: the restart is happening anyway, and a
+# second one minutes later for the rotation would blank the viewer twice.
+_STREAM_RECOVERY_ROTATE_MARGIN = 5 * 60
 _SNAPSHOT_CACHE_TTL = 60.0
 _SNAPSHOT_PREFETCH_AGE = 30.0
 
@@ -84,6 +104,11 @@ class NanitCameraEntity(NanitEntity, Camera):
         self._cancel_stream_keepalive_timer: CALLBACK_TYPE | None = None
         self._stream_refresh_task: asyncio.Task[None] | None = None
         self._stream_keepalive_task: asyncio.Task[bool] | None = None
+        self._watched_stream: Stream | None = None
+        self._stream_was_available: bool = True
+        self._stream_worker_started_at: float = 0.0
+        self._stream_recovery_failures: int = 0
+        self._stream_recovery_task: asyncio.Task[None] | None = None
 
     @property
     def is_on(self) -> bool:
@@ -135,11 +160,16 @@ class NanitCameraEntity(NanitEntity, Camera):
         camera's push away from the replacement entity's stream.
         """
         self._invalidate_stream("entity removal")
-        for task in (self._stream_refresh_task, self._stream_keepalive_task):
+        for task in (
+            self._stream_refresh_task,
+            self._stream_keepalive_task,
+            self._stream_recovery_task,
+        ):
             if task is not None and not task.done():
                 task.cancel()
         self._stream_refresh_task = None
         self._stream_keepalive_task = None
+        self._stream_recovery_task = None
         await super().async_will_remove_from_hass()
 
     def _invalidate_stream(self, reason: str = "state change") -> None:
@@ -158,6 +188,7 @@ class NanitCameraEntity(NanitEntity, Camera):
             else:
                 _LOGGER.debug("Cannot stop discarded Nanit stream before HA attach")
             self.stream = None
+        self._unwatch_stream()
         self._cached_stream_source = None
         self._stream_source_started_at = 0.0
         self._cancel_stream_timers()
@@ -178,6 +209,7 @@ class NanitCameraEntity(NanitEntity, Camera):
             _LOGGER.debug("Invalidating cached stream after %s", reason)
             self.stream = None
             await self._stop_discarded_stream(old_stream)
+        self._unwatch_stream()
         self._cached_stream_source = None
         self._stream_source_started_at = 0.0
         self._cancel_stream_timers()
@@ -489,6 +521,166 @@ class NanitCameraEntity(NanitEntity, Camera):
                 self._camera.uid,
             )
             await self._camera.async_start_streaming()
+
+    # ------------------------------------------------------------------
+    # Dropout recovery
+    # ------------------------------------------------------------------
+
+    async def async_create_stream(self) -> Stream | None:
+        """Create HA's stream and watch its worker for dropouts.
+
+        Camera.async_create_stream points the stream's update callback at
+        async_write_ha_state; it is a single slot, so the watcher wraps that
+        call rather than replacing it.
+        """
+        stream = await super().async_create_stream()
+        if stream is not None and stream is not self._watched_stream:
+            self._watched_stream = stream
+            self._stream_was_available = True
+            self._stream_worker_started_at = 0.0
+            self._stream_recovery_failures = 0
+            stream.set_update_callback(self._on_stream_state_change)
+        return stream
+
+    def _unwatch_stream(self) -> None:
+        """Forget the watched stream and any recovery in flight for it."""
+        self._watched_stream = None
+        task = self._stream_recovery_task
+        if task is not None and not task.done():
+            task.cancel()
+        self._stream_recovery_task = None
+
+    @callback
+    def _on_stream_state_change(self) -> None:
+        """Answer the worker flipping available: HA state first, then recovery.
+
+        The worker sets available=True at the top of every attempt and
+        False after every failure, so each retry of a dead source arrives
+        here as a fresh True->False edge. How long the worker ran between
+        the two tells a real dropout (frames flowed for minutes, then
+        stopped: the camera's push lapsed) from the same outage retried
+        (the open failed at once: nothing is publishing yet).
+        """
+        self.async_write_ha_state()
+        stream = self._watched_stream
+        if stream is None or stream is not self.stream:
+            return
+        available = stream.available
+        was_available = self._stream_was_available
+        self._stream_was_available = available
+        now = time.monotonic()
+        if available:
+            if not was_available:
+                self._stream_worker_started_at = now
+            elif self._stream_worker_started_at == 0.0:
+                self._stream_worker_started_at = now
+            return
+        if not was_available:
+            return
+        ran_for = (
+            now - self._stream_worker_started_at if self._stream_worker_started_at else 0.0
+        )
+        self._stream_worker_started_at = 0.0
+        if ran_for >= _STREAM_RECOVERY_HEALTHY_RUN:
+            self._stream_recovery_failures = 0
+        self._schedule_stream_recovery(stream, ran_for)
+
+    @callback
+    def _schedule_stream_recovery(self, stream: Stream, ran_for: float) -> None:
+        """Queue one recovery for a stream somebody is still watching."""
+        if not self.is_on or not stream.outputs():
+            # Nobody is consuming: HA's idle cleanup will stop the worker.
+            # Resuming the push for an empty room only spends a
+            # PUT_STREAMING and restarts Nanit's 20-minute clock.
+            return
+        task = self._stream_recovery_task
+        if task is not None and not task.done():
+            return
+        failures = self._stream_recovery_failures
+        delay = min(
+            _STREAM_RECOVERY_DELAY_INITIAL * (2**failures),
+            _STREAM_RECOVERY_DELAY_MAX,
+        )
+        log = _LOGGER.info if failures == 0 else _LOGGER.debug
+        log(
+            "Nanit stream for camera %s dropped after %.0fs; resuming the push in %.0fs "
+            "(attempt %d)",
+            self._camera.uid,
+            ran_for,
+            delay,
+            failures + 1,
+        )
+        self._stream_recovery_task = self.hass.async_create_task(
+            self._async_recover_stream(stream, delay),
+            name=f"nanit_stream_recovery_{self._camera.uid}",
+        )
+
+    async def _async_recover_stream(self, stream: Stream, delay: float) -> None:
+        """Resume the camera's push and restart HA's worker on it.
+
+        Reuses the cached RTMPS URL when it has life left, so the source
+        string HA holds does not change; rebuilds it when it is inside the
+        rotation margin. Either way ``update_source`` restarts the worker
+        immediately and resets its own retry backoff, instead of leaving
+        it to wait out the next 10-30s tick against an ingest that only
+        just started receiving frames.
+        """
+        await asyncio.sleep(delay)
+        if stream is not self.stream or not self.is_on or not stream.outputs():
+            return
+
+        source = self._cached_stream_source
+        source_age = time.monotonic() - self._stream_source_started_at
+        rotate = (
+            source is None
+            or self._stream_source_started_at == 0.0
+            or source_age >= _STREAM_SOURCE_MAX_AGE - _STREAM_RECOVERY_ROTATE_MARGIN
+        )
+        if rotate:
+            try:
+                source = await self._camera.async_get_stream_rtmps_url()
+            except Exception:
+                _LOGGER.warning(
+                    "Failed to rebuild RTMPS stream URL during recovery", exc_info=True
+                )
+                self._stream_recovery_failures += 1
+                return
+
+        # Best-effort sends first: a forced control reconnect kills the push
+        # it is trying to resume. Once several cycles have gone unanswered
+        # the control socket is the likelier fault, and one reconnect is
+        # the escalation the health check would eventually perform anyway.
+        escalate = self._stream_recovery_failures >= _STREAM_RECOVERY_ESCALATE_AFTER
+        sent_at = time.monotonic()
+        if not await self._async_start_streaming_safe(
+            source, reconnect_on_failure=escalate
+        ):
+            self._stream_recovery_failures += 1
+            return
+
+        if rotate:
+            self._cached_stream_source = source
+            self._stream_source_started_at = time.monotonic()
+            self._schedule_stream_expiry_timer()
+        self._schedule_stream_keepalive_timer()
+        if stream is not self.stream:
+            return
+        # Counted as a failure until the worker proves otherwise: the edge
+        # handler clears it once the restarted worker stays up.
+        self._stream_recovery_failures += 1
+        if (
+            not rotate
+            and self._stream_was_available
+            and self._stream_worker_started_at >= sent_at
+        ):
+            # HA's own retry opened the ingest after the push resumed; a
+            # restart now would only blank an attempt that may be working.
+            _LOGGER.debug(
+                "Stream worker for camera %s already retrying on the resumed push",
+                self._camera.uid,
+            )
+            return
+        stream.update_source(source)
 
     # ------------------------------------------------------------------
     # Snapshot (with caching)
