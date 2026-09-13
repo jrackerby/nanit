@@ -57,12 +57,17 @@
       },
       "camera_ip": {
         "title": "Device IPs for {camera_name}",
-        "description": "Enter local IP addresses for **{camera_name}** for local-first connectivity. Leave blank to use cloud only.",
+        "description": "Enter local IP addresses for **{camera_name}** for local-first connectivity. The camera address is tested before it is saved. Leave blank to use cloud only.",
         "data": {
           "camera_ip": "Camera IP Address",
           "speaker_ip": "Sound & Light Machine IP Address"
         }
       }
+    },
+    "error": {
+      "invalid_ip": "Invalid IP address",
+      "camera_refused": "The camera is reachable at that address but refused a local connection ({probe_error}). Saving it would have no effect \u2014 leave the field blank to use the cloud connection.",
+      "camera_unreachable": "Could not reach the camera at that address ({probe_error}). Check the address, or leave the field blank to use the cloud connection."
     }
   },
   "exceptions": {

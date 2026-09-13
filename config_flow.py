@@ -17,7 +17,13 @@ from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from aionanit_jr import NanitAuthError, NanitClient, NanitConnectionError, NanitMfaRequiredError
+from aionanit_jr import (
+    LocalProbeResult,
+    NanitAuthError,
+    NanitClient,
+    NanitConnectionError,
+    NanitMfaRequiredError,
+)
 
 from .const import (
     CONF_CAMERA_IP,
@@ -31,6 +37,10 @@ from .const import (
     LOGGER,
 )
 from .sanitize import display_name
+
+# How long to wait for the camera to answer a probe during an options edit.
+# Short: this runs while somebody is looking at a form.
+_IP_PROBE_TIMEOUT: float = 5.0
 
 
 class NanitConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -382,11 +392,41 @@ class NanitOptionsFlow(OptionsFlow):
             ),
         )
 
+    async def _async_probe_camera_ip(
+        self, camera_uid: str | None, camera_ip: str
+    ) -> tuple[str, str] | None:
+        """Ask the camera whether it will accept this address. None = it will.
+
+        Returns (error_key, detail) otherwise. A definitive refusal and a
+        camera that simply did not answer are reported separately, because
+        only one of the two is worth retrying.
+        """
+        cam_data = self.config_entry.runtime_data.cameras.get(camera_uid or "")
+        if cam_data is None:
+            # The camera is not set up this run -- offline at startup, or
+            # unreachable through the cloud. There is nothing to probe with,
+            # and refusing the edit would strand exactly the person who needs
+            # to correct the address.
+            LOGGER.debug("No live camera for %s; saving the IP unprobed", camera_uid)
+            return None
+
+        result: LocalProbeResult = await cam_data.camera.async_probe_local(
+            camera_ip, timeout=_IP_PROBE_TIMEOUT
+        )
+        if result.ok:
+            return None
+        LOGGER.debug("Local probe of %s refused the pin: %s", camera_ip, result.summary)
+        if result.status is not None:
+            # The camera answered and said no. Storing this would be a no-op.
+            return "camera_refused", result.summary
+        return "camera_unreachable", result.summary
+
     async def async_step_camera_ip(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Configure IPs for the selected baby's devices."""
         errors: dict[str, str] = {}
+        probe_detail: str | None = None
 
         hub = self.config_entry.runtime_data.hub
         baby = self._selected_baby()
@@ -410,6 +450,16 @@ class NanitOptionsFlow(OptionsFlow):
                     ipaddress.ip_address(speaker_ip)
                 except ValueError:
                     errors[CONF_SPEAKER_IP] = "invalid_ip"
+
+            # A field that stores an address it never tested is not a
+            # setting, it is a suggestion. nanit#19 sat open for days over an
+            # IP that was correct the whole time and a camera that was
+            # refusing local clients outright, because nothing between this
+            # form and the running transport ever asked.
+            if not errors and camera_ip:
+                probe = await self._async_probe_camera_ip(camera_uid, camera_ip)
+                if probe is not None:
+                    errors[CONF_CAMERA_IP], probe_detail = probe
 
             if not errors:
                 # Merge with existing camera IPs
@@ -463,9 +513,13 @@ class NanitOptionsFlow(OptionsFlow):
                 vol.Optional(CONF_SPEAKER_IP, description={"suggested_value": current_speaker_ip})
             ] = cv.string
 
+        placeholders = {"camera_name": display_name(baby.name, baby.uid)}
+        if probe_detail is not None:
+            placeholders["probe_error"] = probe_detail
+
         return self.async_show_form(
             step_id="camera_ip",
             data_schema=vol.Schema(schema_fields),
-            description_placeholders={"camera_name": display_name(baby.name, baby.uid)},
+            description_placeholders=placeholders,
             errors=errors,
         )
