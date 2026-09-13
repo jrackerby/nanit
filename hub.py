@@ -136,6 +136,7 @@ class NanitHub:
         self._live_speaker_uids: set[str] = set()
         self._sound_lights: dict[str, NanitSoundLight] = {}
         self._unsubscribe_tokens: Callable[[], None] | None = None
+        self._unsubscribe_auth_failed: Callable[[], None] | None = None
 
     @property
     def client(self) -> NanitClient:
@@ -214,9 +215,18 @@ class NanitHub:
         tm = self._client.token_manager
         if tm is not None:
             self._unsubscribe_tokens = tm.on_tokens_refreshed(self._on_tokens_refreshed)
+            self._unsubscribe_auth_failed = tm.on_auth_failed(self._on_auth_failed)
 
         # Fetch babies (also validates tokens)
         babies = await self.async_get_babies_tolerant()
+
+        # The pair is proven live: keep it that way in the background. The
+        # client renews ~10 min before expiry whether or not any camera is
+        # up, so a stopped or unreachable camera no longer lets the refresh
+        # token lapse behind it. Started AFTER validation, never before: a
+        # dead pair must surface as ConfigEntryAuthFailed from the fetch
+        # above, not as a background task retrying a 404.
+        self._client.start_auto_refresh()
 
         self._babies = list(babies)
 
@@ -620,6 +630,19 @@ class NanitHub:
         )
 
     @callback
+    def _on_auth_failed(self, err: Exception) -> None:
+        """The scheduled renewal was rejected outright: ask for credentials.
+
+        Fired once by the client's background task when the refresh token
+        itself is dead. Nothing polls often enough to be relied on to hit
+        the same 404 promptly (the cloud coordinators tolerate a failed
+        cycle), so the task reports it directly and HA opens the reauth
+        flow now rather than at the next unlucky data call.
+        """
+        _LOGGER.error("Nanit token renewal rejected; reauthentication required: %s", err)
+        self._entry.async_start_reauth(self._hass)
+
+    @callback
     def _on_tokens_refreshed(self, new_access: str, new_refresh: str) -> None:
         """Persist refreshed tokens to the config entry."""
         self._hass.config_entries.async_update_entry(
@@ -662,6 +685,9 @@ class NanitHub:
         if self._unsubscribe_tokens is not None:
             self._unsubscribe_tokens()
             self._unsubscribe_tokens = None
+        if self._unsubscribe_auth_failed is not None:
+            self._unsubscribe_auth_failed()
+            self._unsubscribe_auth_failed = None
         await self._client.async_close()
         self._camera_data.clear()
         self._speaker_data.clear()

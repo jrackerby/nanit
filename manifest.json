@@ -23,8 +23,8 @@
     "aionanit_jr"
   ],
   "requirements": [
-    "aionanit-jr@https://github.com/jrackerby/aionanit/releases/download/v1.13.0/aionanit_jr-1.13.0-py3-none-any.whl",
+    "aionanit-jr@https://github.com/jrackerby/aionanit/releases/download/v1.14.0/aionanit_jr-1.14.0-py3-none-any.whl",
     "websockets>=13"
   ],
-  "version": "1.16.0"
+  "version": "1.17.0"
 }
