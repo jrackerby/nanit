@@ -36,3 +36,24 @@ it when it stops being true. Rules about the work are in `jrackerby/HA`'s
   nothing (#20). `settings` has no such gap: `GET_SETTINGS` populates it at
   startup and `night_light_brightness` survives a restart, so the settings
   block - not control - is what a value written earlier can be read back from.
+
+## HA's stream worker on the RTMPS source
+
+- **`homeassistant.components.stream` retries a dead source by itself and
+  never asks the camera for anything.** Each attempt flips `Stream.available`
+  True at its start and False at its failure (so the update callback sees
+  every retry as an edge, not just the first), and the wait between attempts
+  grows 10/20/30 s and only resets after a 300 s healthy run. Nothing in that
+  loop re-sends `PUT_STREAMING`, so once the camera's push lapses every retry
+  opens an empty ingest (observed 2026-09-13 02:20-02:22). `update_source()`
+  restarts the worker at once and zeroes that backoff, the same string
+  included - it is the lever, `stop()`/`start()` is not.
+- **The worker logs the failing source verbatim, access token and all.**
+  `redact_credentials` strips `user:pass@` and `?token=`; Nanit's token sits
+  in the URL path, so each `Error opening stream` line carries a live JWT
+  (#27).
+- **A WebRTC viewer is invisible to `Stream.outputs()`.** go2rtc dials the
+  RTMPS source itself off `stream_source()` at offer time; count sessions from
+  `async_handle_async_webrtc_offer` to `close_webrtc_session` or a
+  WebRTC-only viewer reads as nobody watching (#24). go2rtc's own
+  *preload* of that source panics in its rtmp handler on this estate (#26).
