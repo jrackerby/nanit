@@ -434,6 +434,11 @@ class NanitOptionsFlow(OptionsFlow):
             return self.async_abort(reason="no_cameras")
         camera_uid: str | None = baby.camera_uid or None
         speaker_uid: str | None = hub.speaker_uid_map.get(baby.uid)
+        # Every device uid this account knows about, so the legacy-key cleanup
+        # below can tell pre-v2 residue from an option someone adds later.
+        known_device_uids = {b.camera_uid for b in hub.babies if b.camera_uid} | set(
+            hub.speaker_uid_map.values()
+        )
 
         if user_input is not None:
             camera_ip = user_input.get(CONF_CAMERA_IP, "").strip()
@@ -488,14 +493,24 @@ class NanitOptionsFlow(OptionsFlow):
                 # Merge over the existing options rather than replacing
                 # them wholesale, so any option added elsewhere in the
                 # future survives an IP edit.
-                return self.async_create_entry(
-                    title="",
-                    data={
-                        **self.config_entry.options,
-                        CONF_CAMERA_IPS: current_ips,
-                        CONF_SPEAKER_IPS: current_speaker_ips,
-                    },
-                )
+                merged = {
+                    **self.config_entry.options,
+                    CONF_CAMERA_IPS: current_ips,
+                    CONF_SPEAKER_IPS: current_speaker_ips,
+                }
+                # Pre-v2 stored camera IPs flat, keyed by camera_uid at the
+                # top level. Nothing reads those any more, but the merge above
+                # carries them forward faithfully on every edit, so they never
+                # age out on their own -- they have to be dropped explicitly.
+                # Only keys that look like a device uid mapped to a string go:
+                # a real option added later must survive this.
+                for key in list(merged):
+                    if key in (CONF_CAMERA_IPS, CONF_SPEAKER_IPS):
+                        continue
+                    if key in known_device_uids and isinstance(merged[key], str):
+                        LOGGER.debug("Dropping pre-v2 flat IP option %s", key)
+                        del merged[key]
+                return self.async_create_entry(title="", data=merged)
 
         current_ip = self.config_entry.options.get(CONF_CAMERA_IPS, {}).get(camera_uid or "", "")
         stored_speaker_ips = self.config_entry.options.get(CONF_SPEAKER_IPS, {})
