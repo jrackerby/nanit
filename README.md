@@ -77,10 +77,10 @@ copies the root into `/config/custom_components/nanit/`.
 Issues and feature requests: **[jrackerby/nanit/issues](https://github.com/jrackerby/nanit/issues)**.
 
 CI runs [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest)
-and HACS validation on every push. hassfest scans `custom_components/*` and
-takes no path argument, so `.github/workflows/validate.yml` stages this repo
-into that layout before invoking it; the repo itself stays root-layout because
-`hacs.json` declares `content_in_root: true`.
+and HACS validation on every push. `validate.yml` stages the repo into the
+layout hassfest scans (`jrackerby/HA` `tools/work_docs/TOOLS.md` carries why);
+the repo itself stays root-layout because `hacs.json` declares
+`content_in_root: true`.
 
 Pushing a `manifest.json` whose `version` has changed tags and publishes a
 release automatically — that is the only supported way to cut one.
