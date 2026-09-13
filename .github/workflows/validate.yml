@@ -130,7 +130,8 @@ jobs:
           # repo had neither. Both are set now, so both are ENFORCED -- going
           # on ignoring a check that would pass is how a gate stops being one.
           #
-          # `brands` stays ignored: it needs either brand/icon.png committed
-          # here or an accepted PR against home-assistant/brands, and until one
-          # of those exists the check can only ever fail.
-          ignore: brands
+          # `brands` is NOT ignored either: hacs/integration's validate/brands.py
+          # reads brand/icon.png out of the tree (root, under content_in_root)
+          # and only asks home-assistant/brands when that file is absent. It is
+          # committed, so an `ignore:` here was hiding a green gate -- and the
+          # default-store submission requires a run without one.
