@@ -12,11 +12,9 @@ from homeassistant.components.light import (
     LightEntity,
 )
 from homeassistant.components.light.const import ColorMode
-from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util.color import (
     brightness_to_value,
     value_to_brightness,
@@ -54,7 +52,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class NanitNightLight(NanitEntity, RestoreEntity, LightEntity):
+class NanitNightLight(NanitEntity, LightEntity):
     """Nanit camera night light — dimmable light entity."""
 
     _attr_translation_key = "night_light"
@@ -78,24 +76,24 @@ class NanitNightLight(NanitEntity, RestoreEntity, LightEntity):
         if coordinator.data is not None:
             self._sync_from_state(coordinator.data)
 
-    async def async_added_to_hass(self) -> None:
-        """Restore last known state on startup.
-
-        Only restore from concrete on/off states; treat unavailable/unknown
-        as "no info" so a disconnect at shutdown doesn't pin the entity to
-        off until the next coordinator update.
-        """
-        await super().async_added_to_hass()
-        if self._attr_is_on is None:
-            last_state = await self.async_get_last_state()
-            if last_state is not None and last_state.state in (STATE_ON, STATE_OFF):
-                self._attr_is_on = last_state.state == STATE_ON
-                if (brightness := last_state.attributes.get(ATTR_BRIGHTNESS)) is not None:
-                    self._attr_brightness = int(brightness)
-
     @property
     def is_on(self) -> bool | None:
-        """Return true if the light is on."""
+        """Return true if the light is on, or None when nothing has reported it.
+
+        THIS ENTITY DOES NOT RESTORE on/off, deliberately (#20). The only
+        source for night-light on/off is `control.night_light`, and
+        `GET_CONTROL` answers without it -- it stays None from startup until a
+        `PUT_CONTROL` echo fills it (TOOLS.md, measured). A RestoreEntity
+        restore therefore did not reload a value the device would later
+        confirm; it published the previous run's value indefinitely, with
+        nothing behind it. Observed 2026-09-12: the entity read `on` all day
+        while the camera's own control state, once asked, was `off`.
+
+        Unknown is the honest answer until something reports. Brightness is a
+        different case and is NOT affected: it comes from
+        `settings.night_light_brightness`, which `GET_SETTINGS` does populate
+        at startup and which survives a restart.
+        """
         return self._attr_is_on
 
     @property

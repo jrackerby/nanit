@@ -36,6 +36,11 @@ trap is in that repo's `tools/work_docs/TOOLS.md`.
   nothing (#20). `settings` has no such gap: `GET_SETTINGS` populates it at
   startup and `night_light_brightness` survives a restart, so the settings
   block - not control - is what a value written earlier can be read back from.
+  **The night light therefore does NOT restore on/off** and reads `unknown`
+  between a restart and the first write - a `RestoreEntity` restore here
+  republished the previous run's value indefinitely rather than reloading one
+  the device would confirm. Do not "fix" that unknown by restoring it, and do
+  not derive it from brightness.
 
 ## HA's stream worker on the RTMPS source
 
@@ -57,3 +62,22 @@ trap is in that repo's `tools/work_docs/TOOLS.md`.
   `async_handle_async_webrtc_offer` to `close_webrtc_session` or a
   WebRTC-only viewer reads as nobody watching (#24). go2rtc's own
   *preload* of that source panics in its rtmp handler on this estate (#26).
+
+## Testing this repo
+
+- **The component's own syntax needs Python >= 3.12 and Home Assistant needs
+  >= 3.14.2** - `__init__.py` uses a PEP 695 `type` statement, so a 3.11
+  interpreter cannot even parse the package, and `pip install homeassistant`
+  for the running version fails on any interpreter older than 3.14.2. A
+  session on an older container gets a real interpreter from `uv python
+  install 3.13` rather than concluding the repo is untestable.
+- **`tests/ha_stubs.py` fabricates the absent imports, and ONLY the absent
+  ones.** It resolves each root first and stubs what is genuinely missing, so
+  the same file runs against real `aionanit_jr` in CI and against a
+  fabrication in a bare container. That filtering is load-bearing, not tidy:
+  an unconditional stub would answer for the wheel and turn the `tests` job's
+  symbol check green on nothing. Green here is logic only - LAW.md §16 - and
+  says nothing about a running Home Assistant.
+- **The suite runs inside the existing `tests` job, deliberately.** A new job
+  would add a check name that master's required-context list does not carry,
+  so it would report and gate nothing (jrackerby/whisker-ting#17).
