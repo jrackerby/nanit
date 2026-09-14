@@ -59,12 +59,20 @@ jobs:
           uv pip install -p .venv/bin/python -r requirements.txt
           .venv/bin/python .github/scripts/check_requirements.py
 
-      # The unit suite runs in the SAME job on purpose. Adding a job would add
-      # a check name, and master's required contexts are a fixed list this
-      # session cannot read (403) let alone edit -- a new name would report
-      # green and gate nothing, which is jrackerby/whisker-ting#17's defect,
-      # not a fix for it. Folded in here, a failing test fails a context that
-      # is already required.
+      # The unit suite runs in the SAME job rather than a new one, because a
+      # new job adds a check NAME, and master's required-context list is a
+      # fixed list that a session cannot read (403 on the protection endpoint,
+      # jrackerby/whisker-ting#17) let alone edit. Adding a name that is not on
+      # that list buys a check that reports and gates nothing.
+      #
+      # WHAT IS NOT KNOWN HERE: whether this `tests` job is itself on that
+      # list. It is not verified -- do not read the placement as proof the
+      # suite gates a merge. What IS measured (run 34792366286): the shared
+      # workflow's `validate / tests` reports SKIPPED, because `test-command`
+      # above is empty, so the context carrying the word "tests" under
+      # `validate` certainly gates nothing today. Confirming or fixing that is
+      # a branch-protection edit, which is jrackerby/whisker-ting#17 and
+      # jrackerby/ha-deebot-discovery#21's subject, not this file's.
       #
       # Installed from tests/requirements.txt, not from a bare `pip install
       # pytest` (LAW.md §15). Runs AFTER the symbol check above so the real
