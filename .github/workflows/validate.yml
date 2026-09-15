@@ -65,14 +65,14 @@ jobs:
       # jrackerby/whisker-ting#17) let alone edit. Adding a name that is not on
       # that list buys a check that reports and gates nothing.
       #
-      # WHAT IS NOT KNOWN HERE: whether this `tests` job is itself on that
-      # list. It is not verified -- do not read the placement as proof the
-      # suite gates a merge. What IS measured (run 34792366286): the shared
-      # workflow's `validate / tests` reports SKIPPED, because `test-command`
-      # above is empty, so the context carrying the word "tests" under
-      # `validate` certainly gates nothing today. Confirming or fixing that is
-      # a branch-protection edit, which is jrackerby/whisker-ting#17 and
-      # jrackerby/ha-deebot-discovery#21's subject, not this file's.
+      # THIS `tests` JOB IS ON THAT LIST. Measured 2026-09-15 on #35: master's
+      # required contexts read `["tests", "validate / hassfest", "validate /
+      # hacs"]` off `/branches/master` (readable where `/protection` 403s),
+      # and the PR sat BLOCKED until this job passed. So the suite below DOES
+      # gate a merge. The shared workflow's `validate / tests` still reports
+      # SKIPPED (`test-command` above is empty) and is not on the list, so it
+      # gates nothing -- the gate is this job, by this name; rename it and
+      # every PR wedges (jrackerby/HA TOOLS.md, "Landing a branch").
       #
       # Installed from tests/requirements.txt, not from a bare `pip install
       # pytest` (LAW.md §15). Runs AFTER the symbol check above so the real
