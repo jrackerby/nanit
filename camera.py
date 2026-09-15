@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any
 
@@ -58,6 +59,42 @@ _STREAM_RECOVERY_ROTATE_MARGIN = 5 * 60
 _WEBRTC_SESSION_MAX_AGE = 6 * 60 * 60
 _SNAPSHOT_CACHE_TTL = 60.0
 _SNAPSHOT_PREFETCH_AGE = 30.0
+
+# HA's stream worker logs on a logger named after the camera entity
+# (`homeassistant.components.stream.stream.<entity_id>`, core
+# stream/__init__.py, `stream_label=self.entity_id` from camera/__init__.py)
+# and runs the source through `redact_credentials`, which strips `user:pass@`
+# and the `auth`/`user`/`password` query keys and nothing else. Nanit carries
+# the access token as a PATH segment (`/nanit/<baby>.<token>`), so every
+# failed open wrote a live token to the journal at ERROR (#27). HA's own
+# `logger: filters:` is no answer: a Python filter binds to the ONE logger it
+# is added to (children inherit handlers, never filters), and it DROPS the
+# matching line rather than redacting it, blinding the dropout watch (#25).
+# This filter binds to exactly that per-entity logger and rewrites the token
+# in place; the line, and the dropout it reports, survive.
+_STREAM_LOGGER_PREFIX = "homeassistant.components.stream.stream."
+_STREAM_TOKEN_RE = re.compile(
+    r"(rtmps?://[^/\s]*nanit\.com/nanit/[^./\s]+\.)[A-Za-z0-9._~-]+"
+)
+_STREAM_TOKEN_REDACTED = r"\1<redacted>"
+
+
+class _StreamTokenRedactor(logging.Filter):
+    """Rewrite the Nanit access token out of a per-stream log record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Never drop a record; only rewrite the token when one is present."""
+        message = record.getMessage()
+        redacted = _STREAM_TOKEN_RE.sub(_STREAM_TOKEN_REDACTED, message)
+        if redacted != message:
+            record.msg = redacted
+            record.args = ()
+        return True
+
+
+# One instance: `Logger.addFilter` dedupes by identity, so a reload that
+# re-adds an entity under the same id cannot stack a second copy.
+_STREAM_TOKEN_REDACTOR = _StreamTokenRedactor()
 
 
 async def async_setup_entry(
@@ -157,6 +194,20 @@ class NanitCameraEntity(NanitEntity, Camera):
 
         super()._handle_coordinator_update()
 
+    async def async_added_to_hass(self) -> None:
+        """Bind the token redactor before HA can create this entity's stream.
+
+        The stream, and its logger, are created lazily from `entity_id`,
+        which exists only from this hook on -- so the filter is on the
+        logger before the first record can reach it.
+        """
+        await super().async_added_to_hass()
+        self._stream_logger().addFilter(_STREAM_TOKEN_REDACTOR)
+
+    def _stream_logger(self) -> logging.Logger:
+        """The logger HA's stream component names after this entity."""
+        return logging.getLogger(f"{_STREAM_LOGGER_PREFIX}{self.entity_id}")
+
     async def async_will_remove_from_hass(self) -> None:
         """Tear down stream bookkeeping so nothing outlives the entity.
 
@@ -178,6 +229,7 @@ class NanitCameraEntity(NanitEntity, Camera):
         self._stream_refresh_task = None
         self._stream_keepalive_task = None
         self._stream_recovery_task = None
+        self._stream_logger().removeFilter(_STREAM_TOKEN_REDACTOR)
         await super().async_will_remove_from_hass()
 
     def _invalidate_stream(self, reason: str = "state change") -> None:
