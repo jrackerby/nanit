@@ -670,8 +670,15 @@ class NanitCameraEntity(NanitEntity, Camera):
 
     @callback
     def _schedule_stream_recovery(self, stream: Stream, ran_for: float) -> None:
-        """Queue one recovery for a stream somebody is still watching."""
-        if not self.is_on or not stream.outputs():
+        """Queue one recovery for a stream somebody is still watching.
+
+        Viewers count on either path, exactly as the keepalive counts them
+        (#24): a WebRTC session reaches the camera through go2rtc and shows
+        up in no `outputs()`. Gating this on `outputs()` alone dropped both
+        the recovery and the INFO line #25 watches for whenever the viewer
+        that survived the dropout was the WebRTC one.
+        """
+        if not self.is_on or not self._has_live_viewers():
             # Nobody is consuming: HA's idle cleanup will stop the worker.
             # Resuming the push for an empty room only spends a
             # PUT_STREAMING and restarts Nanit's 20-minute clock.
@@ -709,7 +716,7 @@ class NanitCameraEntity(NanitEntity, Camera):
         just started receiving frames.
         """
         await asyncio.sleep(delay)
-        if stream is not self.stream or not self.is_on or not stream.outputs():
+        if stream is not self.stream or not self.is_on or not self._has_live_viewers():
             return
 
         source = self._cached_stream_source
@@ -747,6 +754,14 @@ class NanitCameraEntity(NanitEntity, Camera):
             self._schedule_stream_expiry_timer()
         self._schedule_stream_keepalive_timer()
         if stream is not self.stream:
+            return
+        if not stream.outputs():
+            # The push is resumed, which is the whole of what a WebRTC-only
+            # viewer needs. HA's worker serves `outputs()` and nothing else,
+            # so there is no restart to make here -- and nothing unproven to
+            # count, since no worker edge will come back to clear it. Leaving
+            # the counter to climb would demote the next real dropout's line
+            # from INFO to DEBUG and hide it from the #25 watch.
             return
         # Counted as a failure until the worker proves otherwise: the edge
         # handler clears it once the restarted worker stays up.

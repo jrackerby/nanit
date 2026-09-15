@@ -63,11 +63,30 @@ def _fabricate(name: str) -> type:
     return _StubMeta(name, (_StubBase,), {})
 
 
+def _identity(obj):
+    """Return the decorated object unchanged."""
+    return obj
+
+
+# DECORATORS THAT MUST NOT BE FABRICATED. A fabricated stub is a CLASS, so
+# using one as a decorator REPLACES the method with a stub instance: calling
+# it silently returns the stub and runs none of the code. Every test of a
+# `@callback` method then passes while asserting nothing -- measured on the
+# #25 recovery-gate tests, which read green against both the fix and master.
+# These names pass their argument straight through instead.
+_IDENTITY_ATTRS = {
+    ("homeassistant.core", "callback"),
+}
+
+
 class _StubModule(ModuleType):
     def __getattr__(self, name: str):
         if name.startswith("__"):
             raise AttributeError(name)
-        value = _fabricate(name)
+        if (self.__name__, name) in _IDENTITY_ATTRS:
+            value = _identity
+        else:
+            value = _fabricate(name)
         setattr(self, name, value)
         return value
 

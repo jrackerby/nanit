@@ -78,6 +78,15 @@ trap is in that repo's `tools/work_docs/TOOLS.md`.
   an unconditional stub would answer for the wheel and turn the `tests` job's
   symbol check green on nothing. Green here is logic only - LAW.md §16 - and
   says nothing about a running Home Assistant.
+- **A FABRICATED STUB IS A CLASS, SO IT CANNOT BE A DECORATOR.** Every
+  `homeassistant.*` name `ha_stubs` invents is a class; using one to
+  decorate REPLACES the method with a stub instance, and calling that
+  instance returns the instance and runs none of the method. A test of any
+  `@callback` method therefore passes while asserting nothing - measured on
+  #25's recovery-gate tests, which read green against the fix AND against
+  master until `homeassistant.core.callback` was made a pass-through in
+  `_IDENTITY_ATTRS`. Any other decorator reached from a stubbed root needs
+  the same entry; running the new test against master is what catches it.
 - **The suite runs inside the existing `tests` job, deliberately.** A new job
   would add a check name that master's required-context list does not carry,
   so it would report and gate nothing (jrackerby/whisker-ting#17).
